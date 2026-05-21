@@ -24,3 +24,9 @@ Revision history for Module-Starter-PBP
 
     - Fixed bug in Author name extraction
       (Thanks, Matthew!)
+
+
+0.003  Thu May 21 14:04:00 2026
+
+    - Eliminate problematic each() loop
+      (Thanks, Matthew!)
