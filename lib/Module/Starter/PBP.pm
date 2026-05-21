@@ -290,7 +290,7 @@ Module::Starter::PBP - Create a module as recommended in "Perl Best Practices"
 
 =head1 VERSION
 
-This document describes Module::Starter::PBP version 0.002
+This document describes Module::Starter::PBP version 0.003
 
 
 =head1 SYNOPSIS
@@ -617,7 +617,7 @@ use warnings;
 use strict;
 use Carp;
 
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 
 # Other recommended modules (uncomment to use):
 #  use IO::Prompt;
