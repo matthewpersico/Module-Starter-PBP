@@ -211,10 +211,7 @@ sub import {
         print {*STDERR} "Writing $config_file...\n";
     }
 
-    push @config_info, (
-        "plugins: Module::Starter::PBP\n",
-        "template_dir: $template_dir\n",
-    );
+    push @config_info, ("plugins: Module::Starter::PBP\n", "template_dir: $template_dir\n",);
 
     open my $fh, '>', $config_file or die "$config_file: $!\n";
     print {$fh} @config_info or die "$config_file: $!\n";
@@ -222,13 +219,10 @@ sub import {
     print {*STDERR} "done.\n";
 
     print {*STDERR} "Installing templates...\n";
+
     # Then install the various files...
     my @files = (
-        ['Build.PL'],
-        ['Makefile.PL'],
-        ['README'],
-        ['Changes'],
-        ['Module.pm'],
+        ['Build.PL'], ['Makefile.PL'], ['README'], ['Changes'], ['Module.pm'],
         ['t', 'pod-coverage.t'],
         ['t', 'pod.t'],
         ['t', 'perlcritic.t'],
@@ -241,7 +235,7 @@ sub import {
 
     for my $ref_path (@files) {
         my $abs_path
-            = File::Spec->catfile($ENV{HOME}, '.module-starter', 'PBP', @{$ref_path});
+            = File::Spec->catfile( $ENV{HOME}, '.module-starter', 'PBP', @{$ref_path} );
         print {*STDERR} "\t$abs_path...";
         open my $fh, '>', $abs_path or die "$abs_path: $!\n";
         print {$fh} $contents_of{ $ref_path->[-1] } or die "$abs_path: $!\n";
