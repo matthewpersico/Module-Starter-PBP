@@ -8,7 +8,7 @@ use strict;
 use Carp;
 
 sub module_guts {
-    my $self = shift;
+    my $self    = shift;
     my %context = (
         'MODULE NAME' => shift,
         'RT NAME'     => shift,
@@ -19,9 +19,8 @@ sub module_guts {
     return $self->_load_and_expand_template('Module.pm', \%context);
 }
 
-
 sub Makefile_PL_guts {
-    my $self = shift;
+    my $self    = shift;
     my %context = (
         'MAIN MODULE'  => shift,
         'MAIN PM FILE' => shift,
@@ -33,7 +32,7 @@ sub Makefile_PL_guts {
 }
 
 sub Build_PL_guts {
-    my $self = shift;
+    my $self    = shift;
     my %context = (
         'MAIN MODULE'  => shift,
         'MAIN PM FILE' => shift,
@@ -48,8 +47,8 @@ sub Changes_guts {
     my $self = shift;
 
     my %context = (
-        'DATE'         => scalar localtime,
-        'YEAR'         => $self->_thisyear(),
+        'DATE' => scalar localtime,
+        'YEAR' => $self->_thisyear(),
     );
 
     return $self->_load_and_expand_template('Changes', \%context);
@@ -68,23 +67,21 @@ sub README_guts {
 }
 
 sub t_guts {
-    my $self = shift;
+    my $self    = shift;
     my @modules = @_;
     my %context = (
-        'DATE'               => scalar localtime,
-        'YEAR'               => $self->_thisyear(),
+        'DATE' => scalar localtime,
+        'YEAR' => $self->_thisyear(),
     );
 
     my %t_files;
-    for my $test_file ( map { s{\A .*/t/}{}xms; $_; }
-                            glob "$self->{template_dir}/t/*" ) {
-        $t_files{$test_file}
-            = $self->_load_and_expand_template("t/$test_file", \%context);
+    for my $test_file (map { s{\A .*/t/}{}xms; $_; } glob "$self->{template_dir}/t/*") {
+        $t_files{$test_file} = $self->_load_and_expand_template("t/$test_file", \%context);
     }
 
-    my $nmodules = @modules;
+    my $nmodules    = @modules;
     my $main_module = $modules[0];
-    my $use_lines = join( "\n", map { "use_ok( '$_' );" } @modules );
+    my $use_lines   = join("\n", map {"use_ok( '$_' );"} @modules);
 
     $t_files{'00.load.t'} = <<"END_LOAD";
 use Test::More tests => $nmodules;
@@ -102,7 +99,7 @@ END_LOAD
 sub _load_and_expand_template {
     my ($self, $rel_file_path, $context_ref) = @_;
 
-    @{$context_ref}{map {uc} keys %$self} = values %$self;
+    @{$context_ref}{ map {uc} keys %$self } = values %$self;
 
     # Allow spaces instead of underscores...
     for my $key (sort keys %$context_ref) {
@@ -168,18 +165,16 @@ sub import {
     }
 
     # Create the directories...
-    my $template_dir
-        = File::Spec->catdir( $ENV{HOME}, '.module-starter', 'PBP' );
-    if ( not -d $template_dir ) {
+    my $template_dir = File::Spec->catdir($ENV{HOME}, '.module-starter', 'PBP');
+    if (not -d $template_dir) {
         print {*STDERR} "Creating $template_dir...";
         local @ARGV = $template_dir;
         mkpath;
         print {*STDERR} "done.\n";
     }
 
-    my $template_test_dir
-        = File::Spec->catdir( $ENV{HOME}, '.module-starter', 'PBP', 't' );
-    if ( not -d $template_test_dir ) {
+    my $template_test_dir = File::Spec->catdir($ENV{HOME}, '.module-starter', 'PBP', 't');
+    if (not -d $template_test_dir) {
         print {*STDERR} "Creating $template_test_dir...";
         local @ARGV = $template_test_dir;
         mkpath;
@@ -187,25 +182,21 @@ sub import {
     }
 
     # Create or update the config file (making a backup, of course)...
-    my $config_file
-        = File::Spec->catfile( $ENV{HOME}, '.module-starter', 'config' );
+    my $config_file = File::Spec->catfile($ENV{HOME}, '.module-starter', 'config');
 
     my @config_info;
 
-    if ( -e $config_file ) {
+    if (-e $config_file) {
         print {*STDERR} "Backing up $config_file...";
-        my $backup
-            = File::Spec->catfile( $ENV{HOME}, '.module-starter', 'config.bak' );
+        my $backup = File::Spec->catfile($ENV{HOME}, '.module-starter', 'config.bak');
         rename($config_file, $backup);
         print {*STDERR} "done.\n";
 
         print {*STDERR} "Updating $config_file...";
         open my $fh, '<', $backup or die "$config_file: $!\n";
-        @config_info
-            = grep { not /\A (?: template_dir | plugins ) : /xms } <$fh>;
+        @config_info = grep { not /\A (?: template_dir | plugins ) : /xms } <$fh>;
         close $fh or die "$config_file: $!\n";
-    }
-    else {
+    } else {
         print {*STDERR} "Creating $config_file...\n";
 
         my $author = _prompt_for('your full name');
@@ -225,9 +216,9 @@ sub import {
         "template_dir: $template_dir\n",
     );
 
-    open my $fh, '>', $config_file  or die "$config_file: $!\n";
-    print {$fh} @config_info        or die "$config_file: $!\n";
-    close $fh                       or die "$config_file: $!\n";
+    open my $fh, '>', $config_file or die "$config_file: $!\n";
+    print {$fh} @config_info or die "$config_file: $!\n";
+    close $fh                or die "$config_file: $!\n";
     print {*STDERR} "done.\n";
 
     print {*STDERR} "Installing templates...\n";
@@ -248,13 +239,13 @@ sub import {
         s/^!=([a-z])/=$1/gxms;
     }
 
-    for my $ref_path ( @files ) {
+    for my $ref_path (@files) {
         my $abs_path
-            = File::Spec->catfile( $ENV{HOME}, '.module-starter', 'PBP', @{$ref_path} );
+            = File::Spec->catfile($ENV{HOME}, '.module-starter', 'PBP', @{$ref_path});
         print {*STDERR} "\t$abs_path...";
-        open my $fh, '>', $abs_path                or die "$abs_path: $!\n";
-        print {$fh} $contents_of{$ref_path->[-1]}  or die "$abs_path: $!\n";
-        close $fh                                  or die "$abs_path: $!\n";
+        open my $fh, '>', $abs_path or die "$abs_path: $!\n";
+        print {$fh} $contents_of{ $ref_path->[-1] } or die "$abs_path: $!\n";
+        close $fh                                   or die "$abs_path: $!\n";
         print {*STDERR} "done\n";
     }
     print {*STDERR} "Installation complete.\n";
@@ -278,8 +269,7 @@ sub _prompt_for {
     return $response;
 }
 
-
-1; # Magic true value required at end of module
+1;    # Magic true value required at end of module
 
 =pod
 
@@ -529,8 +519,6 @@ SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGES.
 
 =cut
-
-
 
 __DATA__
 
