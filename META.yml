@@ -1,6 +1,7 @@
 ---
 abstract: 'Create a module as recommended in "Perl Best Practices"'
 author:
+  - 'Matthew O. Persico <persicom.cpan@gmail.com>'
   - 'Damian Conway <DCONWAY@cpan.org>'
 build_requires:
   ExtUtils::MakeMaker: '0'

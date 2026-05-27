@@ -1,7 +1,8 @@
 {
    "abstract" : "Create a module as recommended in \"Perl Best Practices\"",
    "author" : [
-      "Damian Conway <DCONWAY@cpan.org>"
+       "Matthew O. Persico <persicom.cpan@gmail.com>",
+       "Damian Conway <DCONWAY@cpan.org>"
    ],
    "dynamic_config" : 1,
    "generated_by" : "ExtUtils::MakeMaker version 7.70, CPAN::Meta::Converter version 2.150010",

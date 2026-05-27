@@ -478,7 +478,7 @@ L<http://rt.cpan.org>.
 
 =head1 AUTHOR
 
-Damian Conway  C<< <DCONWAY@cpan.org> >>
+Matthew O. Persico C<< <persicom.cpan@gmail.com> >>, Damian Conway  C<< <DCONWAY@cpan.org> >>
 
 
 =head1 LICENCE AND COPYRIGHT
