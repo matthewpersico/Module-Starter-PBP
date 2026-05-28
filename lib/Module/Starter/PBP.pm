@@ -20,24 +20,34 @@ sub module_guts {
 }
 
 sub Makefile_PL_guts {
-    my $self    = shift;
+    my $self = shift;
+
+    my $meta_merge = $self->Makefile_PL_meta_merge();
+    $meta_merge =~ s/^\s*META_MERGE\s*=>\s*//i;
+
     my %context = (
-        'MAIN MODULE'  => shift,
-        'MAIN PM FILE' => shift,
-        'DATE'         => scalar localtime,
-        'YEAR'         => $self->_thisyear(),
+        'MAIN MODULE'    => shift,
+        'MAIN PM FILE'   => shift,
+        'DATE'           => scalar localtime,
+        'YEAR'           => $self->_thisyear(),
+        'META_MERGE_opt' => eval $meta_merge,
     );
 
     return $self->_load_and_expand_template('Makefile.PL', \%context);
 }
 
 sub Build_PL_guts {
-    my $self    = shift;
+    my $self = shift;
+
+    my $meta_merge = $self->Build_PL_meta_merge();
+    $meta_merge =~ s/^\s*META_MERGE\s*=>\s*//i;
+
     my %context = (
-        'MAIN MODULE'  => shift,
-        'MAIN PM FILE' => shift,
-        'DATE'         => scalar localtime,
-        'YEAR'         => $self->_thisyear(),
+        'MAIN MODULE'    => shift,
+        'MAIN PM FILE'   => shift,
+        'DATE'           => scalar localtime,
+        'YEAR'           => $self->_thisyear(),
+        'META_MERGE_opt' => eval $meta_merge,
     );
 
     return $self->_load_and_expand_template('Build.PL', \%context);
@@ -96,6 +106,50 @@ END_LOAD
     return %t_files;
 }
 
+sub _comma_list {
+    if ($_[1] eq 'Makefile.PL') {
+        # Makefile.PL takes an array ref of individual strings, so we quote
+        # each string..
+        return q(') . join(q(', '), @{ $_[0] }) . q(');
+    } else {
+        # Text can just be joined.
+        return join(', ', @{ $_[0] });
+    }
+}
+
+sub _placeholder_subst {
+    my ($placeholder, $context_ref, $rel_file_path) = @_;
+    if (not exists $context_ref->{$placeholder}) {
+        if ($placeholder =~ /_opt$/) {
+            return '';
+        } else {
+            die "Unknown placeholder <$placeholder> in $rel_file_path\n";
+        }
+    }
+    my $reftype = ref($context_ref->{$placeholder});
+    if ($reftype eq 'ARRAY') {
+        if ($placeholder eq 'AUTHOR') {
+            return _comma_list($context_ref->{$placeholder}, $rel_file_path);
+        } else {
+            return $context_ref->{$placeholder}->[0];
+        }
+    }
+
+    if ($reftype eq 'HASH') {
+        my $key = $placeholder;
+        $key =~ s/ /_/g;
+        $key =~ s/_opt//;
+        $key = lc($key) if $rel_file_path eq 'Build.PL';
+        my $text = Data::Dumper->Dump([$context_ref->{$placeholder}]);
+        chomp($text);
+        $text =~ s/\$VAR1 = /$key => /;
+        $text =~ s/;$/,/;
+        return $text;
+    }
+
+    return $context_ref->{$placeholder};
+}
+
 sub _load_and_expand_template {
     my ($self, $rel_file_path, $context_ref) = @_;
 
@@ -129,13 +183,7 @@ sub _load_and_expand_template {
     local $/;
     my $text = <$fh>;
 
-    $text =~ s{<([A-Z ]+)>}
-              { $context_ref->{$1}
-                ? ( ref($context_ref->{$1}) eq 'ARRAY'
-                    ? $context_ref->{$1}->[0]
-                    : $context_ref->{$1} )
-                : die "Unknown placeholder <$1> in $rel_file_path\n"
-              }xmseg;
+    $text =~ s{<([A-Z ]+( opt){0,1})>}{_placeholder_subst($1, $context_ref, $rel_file_path)}xmseg;
 
     return $text;
 }
@@ -223,12 +271,18 @@ sub import {
     # Then install the various files...
     my @files = (
         ['Build.PL'], ['Makefile.PL'], ['README'], ['Changes'], ['Module.pm'],
+        ['.perltidyrc'],
         ['t', 'pod-coverage.t'],
         ['t', 'pod.t'],
         ['t', 'perlcritic.t'],
+        ['t', 'tidy.t']
     );
 
     my %contents_of = do { local $/; "", split /_____\[ (\S+) \]_+\n/, <DATA> };
+
+    # In order not to confuse pod when it is processing the PBP.pm file, pod
+    # headers in the templates are prefixed with a !. This for loop removes
+    # those before we write the templates.
     for (values %contents_of) {
         s/^!=([a-z])/=$1/gxms;
     }
@@ -359,8 +413,9 @@ information specific to the file:
 
 =item <AUTHOR>
 
-The nominated author. Taken from the C<author> setting in
-your Module::Starter C<config> file.
+The nominated author. Taken from the C<author> setting in your Module::Starter
+C<config> file. If any other authors are specified on the command line, they
+are added.
 
 =item <BUILD INSTRUCTIONS>
 
@@ -478,12 +533,17 @@ L<http://rt.cpan.org>.
 
 =head1 AUTHOR
 
-Matthew O. Persico C<< <persicom.cpan@gmail.com> >>, Damian Conway  C<< <DCONWAY@cpan.org> >>
+Matthew O. Persico <persicom.cpan@gmail.com>
+
+=head1 AUTHORS EMERITUS
+
+Damian Conway <DCONWAY.CPAN@gmail.org>
+Mark Leighton Fisher <mlfisher@cpan.org>
 
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2005, Damian Conway C<< <DCONWAY@cpan.org> >>. All rights reserved.
+Copyright (c) 2005, Damian Conway <DCONWAY@cpan.org>. All rights reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
@@ -515,7 +575,6 @@ SUCH DAMAGES.
 =cut
 
 __DATA__
-
 _____[ Build.PL ]________________________________________________
 use strict;
 use warnings;
@@ -524,13 +583,19 @@ use Module::Build;
 my $builder = Module::Build->new(
     module_name         => '<MAIN MODULE>',
     license             => '<LICENSE>',
-    dist_author         => '<AUTHOR> <<EMAIL>>',
+    dist_author         => '<AUTHOR>',
     dist_version_from   => '<MAIN PM FILE>',
-    requires => {
+    configure_requires => {
+        'Module::Build' => '0.4004',
+    },
+    test_requires => {
         'Test::More' => 0,
+        'Test::Perl::Critic' => 0,
+        'Perl::Tidy' => 0,
         'version'    => 0,
     },
     add_to_cleanup      => [ '<DISTRO>-*' ],
+    <META MERGE opt>
 );
 
 $builder->create_build_script();
@@ -541,9 +606,23 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile(
     NAME                => '<MAIN MODULE>',
-    AUTHOR              => '<AUTHOR> <<EMAIL>>',
+    AUTHOR              => [<AUTHOR>],
     VERSION_FROM        => '<MAIN PM FILE>',
     ABSTRACT_FROM       => '<MAIN PM FILE>',
+    LICENSE             => '<LICENSE>',
+    CONFIGURE_REQUIRES => {
+        'ExtUtils::MakeMaker' => '0',
+    },
+    TEST_REQUIRES => {
+        'Test::More' => '0',
+        'Test::Perl::Critic' => '0',
+        'Perl::Tidy' => '0'
+    },
+    PREREQ_PM => {
+        #'ABC'              => '1.6',
+        #'Foo::Bar::Module' => '5.0401',
+    },
+
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More' => 0,
@@ -551,6 +630,7 @@ WriteMakefile(
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => '<DISTRO>-*' },
+    <META MERGE opt>
 );
 _____[ README ]__________________________________________________
 <DISTRO> version 0.0.1
@@ -591,7 +671,6 @@ Revision history for <DISTRO>
 
 0.0.1  <DATE>
        Initial release.
-
 _____[ Module.pm ]_______________________________________________
 package <MODULE NAME>;
 
@@ -725,19 +804,17 @@ Please report any bugs or feature requests to
 C<bug-<RT NAME>@rt.cpan.org>, or through the web interface at
 L<http://rt.cpan.org>.
 
-
 !=head1 AUTHOR
 
-<AUTHOR>  C<< <<EMAIL>> >>
+<AUTHOR>
 
 
 !=head1 LICENCE AND COPYRIGHT
 
-Copyright (c) <YEAR>, <AUTHOR> C<< <<EMAIL>> >>. All rights reserved.
+Copyright (c) <YEAR>, <AUTHOR>. All rights reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself. See L<perlartistic>.
-
 
 !=head1 DISCLAIMER OF WARRANTY
 
@@ -778,10 +855,85 @@ all_pod_files_ok();
 _____[ perlcritic.t ]___________________________________________________
 #!perl
 
-if (!require Test::Perl::Critic) {
-    Test::More::plan(
-        skip_all => "Test::Perl::Critic required for testing PBP compliance"
-    );
+use Test::More;
+eval "use Test::Perl::Critic";
+plan skip_all => "Test::Perl::Critic required for testing PBP compliance" if $@;
+Test::Perl::Critic::all_critic_ok();
+_____[ tidy.t ]___________________________________________________
+#!perl
+use Test::More;
+eval "use Perl::Tidy";
+plan skip_all => "Perl::Tidy required for testing code tidiness" if $@;
+
+use FindBin;
+use File::Find;
+
+my @files;
+
+sub perl_code {
+    # Match by name
+    if ( $_ =~ m/\.(p[ml]|t|PL)/) {
+        push @files, $File::Find::name;
+    } else {
+        open my $fh, '<', $File::Find::name or croak $!;
+        my $text = <$fh>;
+        if ( $text =~ m/perl/ ) {
+            push @files, $File::Find::name;
+        }
+    }
 }
 
-Test::Perl::Critic::all_critic_ok();
+my @files = find (\&perl_code, "$FindBin::Bin/..");
+
+my $argv = join(
+    ' ',
+    "--pro=$FindBin::Bin/../.perltidyrc", '--assert-tidy',
+    '-nst',    ## Turns off the -st in -pbp in .perltidyrc
+    map {"$FindBin::Bin/../$_"} @files
+);
+is(Perl::Tidy::perltidy(argv => $argv), 0, "tidy");
+done_testing();
+_____[ .perltidyrc ]___________________________________________________
+# Follow basic PBP guidelines
+-pbp
+
+#...except as follows...
+
+# Format to 100 columns
+-l=100
+
+# Continuation indent is 4 columns
+-ci=4
+
+# Break after all arrow-then-comma sequences (except in one-liners)
+-cab=1
+
+# Opening brace ALWAYS on the right
+-bar
+
+# Don't outdent labels
+-nola
+
+# Preserve all comma breaks in lists (i.e. I'll format them myself)
+-boc
+
+# Tighter parens and square brackets...
+-pt=2
+-sbt=2
+
+# "} else", not "}\nelse".
+--cuddled-else
+
+# Do NOT force a blank line before a full line comment.
+--noblanks-before-comments
+
+# Do not count the side comment in line-length calcs; comments won't cause line
+# breaks.
+--ignore-side-comment-lengths
+
+# DON'T left slam long strings.
+-nolq
+
+# Turn off aligning qw() for multiple 'use' statements. Was turned on by
+# default in perltidy 20220613.
+-vxl='q'
