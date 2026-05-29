@@ -1,11 +1,13 @@
 package Module::Starter::PBP;
 use base 'Module::Starter::Simple';
 
-our $VERSION = '0.003';
-
 use warnings;
 use strict;
 use Carp;
+use Data::Dumper;
+use File::Copy;
+
+our $VERSION = '0.003';
 
 sub module_guts {
     my $self    = shift;
@@ -30,7 +32,7 @@ sub Makefile_PL_guts {
         'MAIN PM FILE'   => shift,
         'DATE'           => scalar localtime,
         'YEAR'           => $self->_thisyear(),
-        'META_MERGE_opt' => eval $meta_merge,
+        'META_MERGE_opt' => eval $meta_merge,     ## no critic (BuiltinFunctions::ProhibitStringyEval)
     );
 
     return $self->_load_and_expand_template('Makefile.PL', \%context);
@@ -47,7 +49,7 @@ sub Build_PL_guts {
         'MAIN PM FILE'   => shift,
         'DATE'           => scalar localtime,
         'YEAR'           => $self->_thisyear(),
-        'META_MERGE_opt' => eval $meta_merge,
+        'META_MERGE_opt' => eval $meta_merge,     ## no critic (BuiltinFunctions::ProhibitStringyEval)
     );
 
     return $self->_load_and_expand_template('Build.PL', \%context);
@@ -85,7 +87,8 @@ sub t_guts {
     );
 
     my %t_files;
-    for my $test_file (map { s{\A .*/t/}{}xms; $_; } glob "$self->{template_dir}/t/*") {
+    for my $test_file (map { my $x = $_; $x =~ s{\A .*/t/}{}xms; $x; }
+        glob "$self->{template_dir}/t/*") {
         $t_files{$test_file} = $self->_load_and_expand_template("t/$test_file", \%context);
     }
 
@@ -271,7 +274,7 @@ sub import {
     # Then install the various files...
     my @files = (
         ['Build.PL'], ['Makefile.PL'], ['README'], ['Changes'], ['Module.pm'],
-        ['.perltidyrc'],
+        ['t', 'perltidyrc'],
         ['t', 'pod-coverage.t'],
         ['t', 'pod.t'],
         ['t', 'perlcritic.t'],
@@ -589,9 +592,11 @@ my $builder = Module::Build->new(
         'Module::Build' => '0.4004',
     },
     test_requires => {
-        'Test::More' => 0,
-        'Test::Perl::Critic' => 0,
         'Perl::Tidy' => 0,
+        'Test::More' => 0,
+        'Test::Pod' => 0,
+        'Test::Pod::Coverage' => 0,
+        'Test::Perl::Critic' => 0,
         'version'    => 0,
     },
     add_to_cleanup      => [ '<DISTRO>-*' ],
@@ -611,23 +616,22 @@ WriteMakefile(
     ABSTRACT_FROM       => '<MAIN PM FILE>',
     LICENSE             => '<LICENSE>',
     CONFIGURE_REQUIRES => {
+        'CPAN::Meta' => '2.150013',
         'ExtUtils::MakeMaker' => '0',
     },
     TEST_REQUIRES => {
-        'Test::More' => '0',
-        'Test::Perl::Critic' => '0',
-        'Perl::Tidy' => '0'
+        'Perl::Tidy' => 0,
+        'Test::More' => 0,
+        'Test::Pod' => 0,
+        'Test::Pod::Coverage' => 0,
+        'Test::Perl::Critic' => 0,
+        'version'    => 0,
     },
     PREREQ_PM => {
         #'ABC'              => '1.6',
         #'Foo::Bar::Module' => '5.0401',
     },
-
     PL_FILES            => {},
-    PREREQ_PM => {
-        'Test::More' => 0,
-        'version'    => 0,
-    },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => '<DISTRO>-*' },
     <META MERGE opt>
@@ -839,31 +843,48 @@ FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
 SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGES.
 _____[ pod-coverage.t ]__________________________________________
-#!perl -T
+#!perl
 
+use strict;
+use warnings;
 use Test::More;
-eval "use Test::Pod::Coverage 1.04";
-plan skip_all => "Test::Pod::Coverage 1.04 required for testing POD coverage" if $@;
+BEGIN {
+    use_ok('Test::Pod::Coverage', 1.04)
+      or plan skip_all => "Test::Pod::Coverage 1.04 required for testing POD coverage";
+}
 all_pod_coverage_ok();
 _____[ pod.t ]___________________________________________________
-#!perl -T
+#!perl
 
+use strict;
+use warnings;
 use Test::More;
-eval "use Test::Pod 1.14";
-plan skip_all => "Test::Pod 1.14 required for testing POD" if $@;
+BEGIN {
+    use_ok('Test::Pod', 1.14)
+      or plan skip_all => "Test::Pod 1.14 required for testing POD";
+}
 all_pod_files_ok();
 _____[ perlcritic.t ]___________________________________________________
 #!perl
 
+use strict;
+use warnings;
 use Test::More;
-eval "use Test::Perl::Critic";
-plan skip_all => "Test::Perl::Critic required for testing PBP compliance" if $@;
+BEGIN {
+    use_ok('Test::Perl::Critic')
+      or plan skip_all => "Test::Perl::Critic required for testing PBP compliance";
+}
 Test::Perl::Critic::all_critic_ok();
 _____[ tidy.t ]___________________________________________________
 #!perl
+
+use strict;
+use warnings;
 use Test::More;
-eval "use Perl::Tidy";
-plan skip_all => "Perl::Tidy required for testing code tidiness" if $@;
+BEGIN {
+    use_ok('Perl::Tidy')
+      or plan skip_all => "Perl::Tidy required for testing code tidiness"
+}
 
 use FindBin;
 use File::Find;
@@ -883,17 +904,17 @@ sub perl_code {
     }
 }
 
-my @files = find (\&perl_code, "$FindBin::Bin/..");
+@files = find (\&perl_code, "$FindBin::Bin/..");
 
 my $argv = join(
     ' ',
-    "--pro=$FindBin::Bin/../.perltidyrc", '--assert-tidy',
-    '-nst',    ## Turns off the -st in -pbp in .perltidyrc
+    "--pro=.../perltidyrc", '--assert-tidy',
+    '-nst',    ## Turns off the -st in -pbp in perltidyrc
     map {"$FindBin::Bin/../$_"} @files
 );
 is(Perl::Tidy::perltidy(argv => $argv), 0, "tidy");
 done_testing();
-_____[ .perltidyrc ]___________________________________________________
+_____[ perltidyrc ]___________________________________________________
 # Follow basic PBP guidelines
 -pbp
 
