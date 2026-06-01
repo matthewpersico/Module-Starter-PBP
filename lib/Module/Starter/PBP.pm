@@ -94,19 +94,57 @@ sub t_guts {
 
     my $nmodules    = @modules;
     my $main_module = $modules[0];
-    my $use_lines   = join("\n", map {"use_ok( '$_' );"} @modules);
+    my $use_lines   = join("\n", map {"    use_ok('$_');"} @modules);
 
     $t_files{'00.load.t'} = <<"END_LOAD";
+use strict;
+use warnings;
+
 use Test::More tests => $nmodules;
 
 BEGIN {
 $use_lines
 }
 
-diag( "Testing $main_module \$${main_module}::VERSION" );
+diag("Testing $main_module \$${main_module}::VERSION");
 END_LOAD
 
     return %t_files;
+}
+
+sub post_create_distro {
+    my $self = shift;
+
+    if (move(
+            File::Spec->catfile($self->{basedir}, 't', 'perltidyrc'),
+            File::Spec->catfile($self->{basedir}, '.perltidyrc')
+        )
+    ) {
+        my $manifest_filepath = File::Spec->catfile($self->{basedir}, 'MANIFEST');
+        if (-f $manifest_filepath) {
+            open my $fh, '<', File::Spec->catfile($self->{basedir}, 'MANIFEST');
+            my @orig_lines = <$fh>;
+            close $fh;
+            my @lines = map {
+                my $du = $_;
+                $du =~ s|t/perltidyrc|.perltidyrc|;
+                $du =~ s/^(\S+\s+)(?!#)(.+)$/$1#$2/;    # Adds comment char where missing.
+                $du
+            } @orig_lines;
+            push @lines, "META.json # Will be created by 'make dist'\n";
+            push @lines, "META.yml  # Will be created by 'make dist'\n";
+            open $fh, '>', File::Spec->catfile($self->{basedir}, 'MANIFEST');
+            $fh->print(@lines);
+            close $fh;
+            for (my $i = 0; $i < scalar(@orig_lines); $i++) {
+                if ($orig_lines[$i] ne $lines[$i]) {
+                    chomp $orig_lines[$i];
+                    chomp $lines[$i];
+                    warn "Updated MANIFEST: '$orig_lines[$i]' => '$lines[$i]'\n";
+                }
+            }
+        }
+    }
 }
 
 sub _comma_list {
@@ -371,7 +409,7 @@ the recommendations in the book "Perl Best Practices".
 
 =head1 INTERFACE
 
-Thsi module simply acts as a plugin for Module::Starter. So it uses the same
+This module simply acts as a plugin for Module::Starter. So it uses the same
 command-line interface as that module.
 
 The template files it is to use are specified in your Module::Starter
@@ -403,11 +441,13 @@ The templates are plain files named:
         Changes
         Module.pm
         t/whatever_you_like.t
+        t/perltidyrc
 
 The C<Module.pm> file is the template for the C<.pm> file for your module. Any
-files in the C<t/> subdirectory become the templates for the testing files of
-your module. All the remaining files are templates for the ditribution files
-of the same names.
+*.t files in the C<t/> subdirectory become the templates for the testing files
+of your module. The 't/perltidyrc' template file will end up as '.perltidyrc'
+in the top level directory of the distribution. All the remaining files are
+templates for the ditribution files of the same names.
 
 In those files, the following placeholders are replaced by the appropriate
 information specific to the file:
@@ -427,7 +467,7 @@ the C<builder> setting in your Module::Starter C<config> file.
 
 =item <DATE>
 
-The current date (as returned by C<localtime>). Computed automagically
+The current date (as returned by C<localtime>).
 
 =item <DISTRO>
 
@@ -436,8 +476,8 @@ name of the module.
 
 =item <EMAIL>
 
-Where to send feedback. Taken from the C<email> setting in
-your Module::Starter C<config> file.
+Where to send feedback. Taken from the C<email> setting in your Module::Starter
+C<config> file. This placeholder is not handled well in Module::Starter.
 
 =item <LICENSE>
 
@@ -470,6 +510,59 @@ The current year. Computed automatically
 
 =back
 
+=head1 MANIFEST
+
+The MANIFEST is generated when after the templates are copied and
+transformed. The MANIFEST also assumes the existance of META.yml and
+META.json. However, those file are generated when creating a distribution. We
+suggest your do NOT add either file to your source code control system. If you
+want to keep those files as references in source control, put the MYMETA*
+versions into git.
+
+=head1 OVERRIDES
+
+In order to do its work, Module::Starter::PBP overrides a number of functions
+in Module::Starter. If your wanted to write your own Module::Starter plugin,
+these are the functions you would override to create your functionality.
+
+=over
+
+=item module_guts
+
+Writes templates for all the .pm files.
+
+=item Build_PL_guts
+
+Writes 'Build.PL'.
+
+=item Makefile_PL_guts
+
+Writes 'Makefile.PL'.
+
+=item Changes_guts
+
+Writes a template 'Changes' file.
+
+=item README_guts
+
+Writes the 'README' file.
+
+=item t_guts
+
+Writes the test files 'pod-coverage.t', 'pod.t', 'perlcritic.t' and, 'tidy.t'
+into the 't/' subdir.
+
+Also writes the perltidyrc file 'perltidyrc' into the 't/' subdir. The
+perltidy command in the 't/tidy.t' file is hard-wired to this file. The reason
+that it is in the 't/' subdir is there was no other way to get it into the
+module; there is no 'guts' handler in Module::Starter to place arbitrary files.
+
+=item post_create_distro
+
+Moves 't/perltidyrc' up one directory, and renames it '.perltidyrc', since it
+is not a test file. Adjusts any MANIFEST file to match.
+
+=back
 
 =head1 DIAGNOSTICS
 
@@ -540,13 +633,13 @@ Matthew O. Persico <persicom.cpan@gmail.com>
 
 =head1 AUTHORS EMERITUS
 
-Damian Conway <DCONWAY.CPAN@gmail.org>
+Damian Conway <DCONWAY.CPAN@gmail.com>
 Mark Leighton Fisher <mlfisher@cpan.org>
 
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2005, Damian Conway <DCONWAY@cpan.org>. All rights reserved.
+Copyright (c) 2026, Matthew O. Persico <persicom.cpan@gmail.com>, Damian Conway <DCONWAY.CPAN@gmail.com>. All rights reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
@@ -592,14 +685,14 @@ my $builder = Module::Build->new(
         'Module::Build' => '0.4004',
     },
     test_requires => {
-        'Perl::Tidy' => 0,
-        'Test::More' => 0,
-        'Test::Pod' => 0,
+        'Perl::Tidy'          => 0,
+        'Test::More'          => 0,
+        'Test::Pod'           => 0,
         'Test::Pod::Coverage' => 0,
-        'Test::Perl::Critic' => 0,
-        'version'    => 0,
+        'Test::Perl::Critic'  => 0,
+        'version'             => 0,
     },
-    add_to_cleanup      => [ '<DISTRO>-*' ],
+    add_to_cleanup => [ '<DISTRO>-*' ],
     <META MERGE opt>
 );
 
@@ -609,33 +702,52 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
-WriteMakefile(
+my %WriteMakefileArgs = (
     NAME                => '<MAIN MODULE>',
     AUTHOR              => [<AUTHOR>],
     VERSION_FROM        => '<MAIN PM FILE>',
     ABSTRACT_FROM       => '<MAIN PM FILE>',
     LICENSE             => '<LICENSE>',
     CONFIGURE_REQUIRES => {
-        'CPAN::Meta' => '2.150013',
+        'CPAN::Meta'          => '2.150013',
         'ExtUtils::MakeMaker' => '0',
     },
     TEST_REQUIRES => {
-        'Perl::Tidy' => 0,
-        'Test::More' => 0,
-        'Test::Pod' => 0,
+        'Perl::Tidy'          => 0,
+        'Test::More'          => 0,
+        'Test::Pod'           => 0,
         'Test::Pod::Coverage' => 0,
-        'Test::Perl::Critic' => 0,
-        'version'    => 0,
+        'Test::Perl::Critic'  => 0,
+        'version'             => 0,
     },
     PREREQ_PM => {
         #'ABC'              => '1.6',
         #'Foo::Bar::Module' => '5.0401',
     },
-    PL_FILES            => {},
-    dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean               => { FILES => '<DISTRO>-*' },
+    dist       => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+    clean      => { FILES    => 'Module-Starter-PBP-*' },
     <META MERGE opt>
 );
+
+# Compatibility with old versions of ExtUtils::MakeMaker
+unless (eval { ExtUtils::MakeMaker->VERSION('6.64'); 1 }) {
+    my $test_requires = delete $WriteMakefileArgs{TEST_REQUIRES} || {};
+    @{ $WriteMakefileArgs{PREREQ_PM} }{ keys %$test_requires } = values %$test_requires;
+}
+
+unless (eval { ExtUtils::MakeMaker->VERSION('6.55_03'); 1 }) {
+    my $build_requires = delete $WriteMakefileArgs{BUILD_REQUIRES} || {};
+    @{ $WriteMakefileArgs{PREREQ_PM} }{ keys %$build_requires } = values %$build_requires;
+}
+
+delete $WriteMakefileArgs{CONFIGURE_REQUIRES}
+    unless eval { ExtUtils::MakeMaker->VERSION('6.52'); 1 };
+delete $WriteMakefileArgs{MIN_PERL_VERSION}
+    unless eval { ExtUtils::MakeMaker->VERSION('6.48'); 1 };
+delete $WriteMakefileArgs{LICENSE}
+    unless eval { ExtUtils::MakeMaker->VERSION('6.31'); 1 };
+
+WriteMakefile(%WriteMakefileArgs);
 _____[ README ]__________________________________________________
 <DISTRO> version 0.0.1
 
@@ -684,17 +796,9 @@ use Carp;
 
 our $VERSION = '0.003';
 
-# Other recommended modules (uncomment to use):
-#  use IO::Prompt;
-#  use Perl6::Export;
-#  use Perl6::Slurp;
-#  use Perl6::Say;
-
-
 # Module implementation here
 
-
-1; # Magic true value required at end of module
+1;    # Magic true value required at end of module
 __END__
 
 !=head1 NAME
@@ -848,10 +952,12 @@ _____[ pod-coverage.t ]__________________________________________
 use strict;
 use warnings;
 use Test::More;
-BEGIN {
-    use_ok('Test::Pod::Coverage', 1.04)
-      or plan skip_all => "Test::Pod::Coverage 1.04 required for testing POD coverage";
-}
+
+# The non eval version calls use_ok() in a BEGIN statement, but Test::Pod sets
+# the number of tests to the number of files being tested, and the use_ok()
+# adds one more test, which confuses Test::More.
+eval q(use Test::Pod::Coverage 1.04);    ## no critic (BuiltinFunctions::ProhibitStringyEval)
+plan skip_all => "Test::Pod::Coverage 1.04 required for testing POD coverage" if $@;
 all_pod_coverage_ok();
 _____[ pod.t ]___________________________________________________
 #!perl
@@ -859,10 +965,12 @@ _____[ pod.t ]___________________________________________________
 use strict;
 use warnings;
 use Test::More;
-BEGIN {
-    use_ok('Test::Pod', 1.14)
-      or plan skip_all => "Test::Pod 1.14 required for testing POD";
-}
+
+# The non eval version calls use_ok() in a BEGIN statement, but Test::Pod sets
+# the number of tests to the number of files being tested, and the use_ok()
+# adds one more test, which confuses Test::More.
+eval q(use Test::Pod 1.14);    ## no critic (BuiltinFunctions::ProhibitStringyEval)
+plan skip_all => "Test::Pod 1.14 required for testing POD" if $@;
 all_pod_files_ok();
 _____[ perlcritic.t ]___________________________________________________
 #!perl
@@ -870,47 +978,62 @@ _____[ perlcritic.t ]___________________________________________________
 use strict;
 use warnings;
 use Test::More;
-BEGIN {
-    use_ok('Test::Perl::Critic')
-      or plan skip_all => "Test::Perl::Critic required for testing PBP compliance";
-}
+
+# The non eval version calls use_ok() in a BEGIN statement, but Test::Pod sets
+# the number of tests to the number of files being tested, and the use_ok()
+# adds one more test, which confuses Test::More.
+eval q(use Test::Perl::Critic);    ## no critic (BuiltinFunctions::ProhibitStringyEval)
+plan skip_all => "Test::Perl::Critic required for testing PBP compliance" if $@;
 Test::Perl::Critic::all_critic_ok();
 _____[ tidy.t ]___________________________________________________
 #!perl
 
 use strict;
 use warnings;
-use Test::More;
-BEGIN {
-    use_ok('Perl::Tidy')
-      or plan skip_all => "Perl::Tidy required for testing code tidiness"
-}
 
+use Test::More;
 use FindBin;
 use File::Find;
 
-my @files;
+# The non eval version calls use_ok() in a BEGIN statement, but Test::Pod sets
+# the number of tests to the number of files being tested, and the use_ok()
+# adds one more test, which confuses Test::More.
+eval q(use Perl::Tidy);    ## no critic (BuiltinFunctions::ProhibitStringyEval)
+plan skip_all => "Perl::Tidy required for testing code tidiness" if $@;
 
-sub perl_code {
+sub is_perl_code {
     # Match by name
-    if ( $_ =~ m/\.(p[ml]|t|PL)/) {
-        push @files, $File::Find::name;
-    } else {
-        open my $fh, '<', $File::Find::name or croak $!;
-        my $text = <$fh>;
-        if ( $text =~ m/perl/ ) {
-            push @files, $File::Find::name;
-        }
+    if ($_[0] =~ m/\.(p[ml]|t|PL)/) {
+        return 1;
     }
+    open my $fh, '<', $_[0]
+        or do {
+        diag("MANIFEST file entry '$_[0]' not found.");
+        return 0;
+        };
+    my $text = <$fh>;
+    if ($text && $text =~ m/#!.*perl/) {
+        return 1;
+    }
+    return 0;
 }
 
-@files = find (\&perl_code, "$FindBin::Bin/..");
+open my $fh, '<', "$FindBin::Bin/../MANIFEST";
+my @files = map {
+    my $filename = "$FindBin::Bin/../$_";
+    chomp $filename;
+    $filename =~ s/\s+.*//;
+    $filename;
+} <$fh>;
+close $fh;
+
+my @perl_files = grep { is_perl_code($_) } @files;
 
 my $argv = join(
     ' ',
-    "--pro=.../perltidyrc", '--assert-tidy',
+    "--pro=$FindBin::Bin/../.perltidyrc", '--assert-tidy',
     '-nst',    ## Turns off the -st in -pbp in perltidyrc
-    map {"$FindBin::Bin/../$_"} @files
+    @perl_files
 );
 is(Perl::Tidy::perltidy(argv => $argv), 0, "tidy");
 done_testing();

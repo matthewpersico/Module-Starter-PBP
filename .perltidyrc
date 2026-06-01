@@ -41,5 +41,3 @@
 # Turn off aligning qw() for multiple 'use' statements. Was turned on by
 # default in perltidy 20220613.
 -vxl='q'
-
-# End of .perltidyrc

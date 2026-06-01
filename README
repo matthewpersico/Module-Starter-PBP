@@ -16,19 +16,17 @@ INSTALLATION
 
 To install this module, run the following commands:
 
-    perl Makefile.PL
-    make
-    make test
-    make install
-
+	perl Makefile.PL
+	make
+	make test
+	make install
 
 Alternatively, to install with Module::Build, you can use the following commands:
 
-    perl Build.PL
-    ./Build
-    ./Build test
-    ./Build install
-
+	perl Build.PL
+	./Build
+	./Build test
+	./Build install
 
 
 DEPENDENCIES
@@ -38,7 +36,7 @@ None.
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2005, Damian Conway
+Copyright (C) 2026, Matthew O. Persico <persicom.cpan@gmail.com>, Damian Conway <DCONWAY.CPAN@gmail.org>
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

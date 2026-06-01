@@ -5,16 +5,22 @@ use ExtUtils::MakeMaker;
 
 my %WriteMakefileArgs = (
     NAME   => 'Module::Starter::PBP',
-    AUTHOR => ['Matthew O. Persico <persicom.cpan@gmail.com>', 'Damian Conway <DCONWAY@cpan.org>'],
+    AUTHOR =>
+        ['Matthew O. Persico <persicom.cpan@gmail.com>', 'Damian Conway <DCONWAY.CPAN@gmail.org>'],
     VERSION_FROM       => 'lib/Module/Starter/PBP.pm',
     ABSTRACT_FROM      => 'lib/Module/Starter/PBP.pm',
-    LICENSE            => 'artistic_2',
-    MIN_PERL_VERSION   => '5.008003',
+    LICENSE            => 'artistic2',
     CONFIGURE_REQUIRES => {
+        'CPAN::Meta'          => '2.150013',
         'ExtUtils::MakeMaker' => '0',
     },
     TEST_REQUIRES => {
-        'Test::More' => '0',
+        'Perl::Tidy'          => 0,
+        'Test::More'          => 0,
+        'Test::Pod'           => 0,
+        'Test::Pod::Coverage' => 0,
+        'Test::Perl::Critic'  => 0,
+        'version'             => 0,
     },
     PREREQ_PM => {
         'Module::Starter' => 0,
@@ -23,18 +29,18 @@ my %WriteMakefileArgs = (
     dist       => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean      => { FILES    => 'Module-Starter-PBP-*' },
     META_MERGE => {
-        'meta-spec' => { version => 2 },
-        resources   => {
-            repository => {
-                type => 'git',
-                url  => 'https://github.com/matthewpersico/Module-Starter-PBP.git',
-                web  => 'https://github.com/matthewpersico/Module-Starter-PBP',
+        'resources' => {
+            'repository' => {
+                'web'  => 'https://github.com/matthewpersico/Module-Starter-PBP',
+                'type' => 'git',
+                'url'  => 'https://github.com/matthewpersico/Module-Starter-PBP.git'
             },
-            bugtracker => {
-                web => 'https://github.com/matthewpersico/Module-Starter-PBP/issues',
-            },
+            'bugtracker' =>
+                { 'web' => 'https://github.com/matthewpersico/Module-Starter-PBP/issues' }
         },
+        'meta-spec' => { 'version' => 2 }
     },
+
 );
 
 # Compatibility with old versions of ExtUtils::MakeMaker
